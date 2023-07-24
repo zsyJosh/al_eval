@@ -165,7 +165,10 @@ def _openai_completion_helper(
     sleep_time: int = 2,
     openai_organization_ids: Optional[Sequence[str]] = constants.OPENAI_ORGANIZATION_IDS,
     openai_api_keys: Optional[Sequence[str]] = constants.OPENAI_API_KEYS,
-    openai_api_base: Optional[str] = None,
+    openai_api_base: Optional[str] = constants.OPENAI_API_BASE,
+    openai_api_version: Optional[str] = constants.OPENAI_API_VERSION,
+    openai_api_type: Optional[str] = constants.OPENAI_API_TYPE,
+    engine: Optional[str] = constants.OPENAI_ENGINE,
     max_tokens: Optional[int] = 1000,
     top_p: Optional[float] = 1.0,
     temperature: Optional[float] = 0.7,
@@ -181,6 +184,12 @@ def _openai_completion_helper(
     # set api base
     openai.api_base = openai_api_base if openai_api_base is not None else DEFAULT_OPENAI_API_BASE
 
+    # set api type
+    openai.api_type = openai_api_type if openai_api_type is not None else None
+
+    # set api version
+    openai.api_version = openai_api_version if openai_api_version is not None else None
+
     # copy shared_kwargs to avoid modifying it
     kwargs.update(dict(max_tokens=max_tokens, top_p=top_p, temperature=temperature))
     curr_kwargs = copy.deepcopy(kwargs)
@@ -188,7 +197,7 @@ def _openai_completion_helper(
     while True:
         try:
             if is_chat:
-                completion_batch = openai.ChatCompletion.create(messages=prompt_batch[0], **curr_kwargs)
+                completion_batch = openai.ChatCompletion.create(engine=engine, messages=prompt_batch[0], **curr_kwargs)
 
                 choices = completion_batch.choices
                 for choice in choices:

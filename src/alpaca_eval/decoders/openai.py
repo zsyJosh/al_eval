@@ -126,8 +126,8 @@ def openai_completions(
     prompt_batches = [prompts[batch_id * batch_size : (batch_id + 1) * batch_size] for batch_id in range(n_batches)]
 
     kwargs = dict(n=1, engine=model_name, is_chat=is_chat, **decoding_kwargs)
-    print('BEFORE kwargs!!', kwargs)
-    print('num_procs', num_procs)
+    logging.info('BEFORE kwargs!!', kwargs)
+    logging.info('num_procs', num_procs)
     logging.info(f"Kwargs to completion: {kwargs}")
 
     with utils.Timer() as t:
@@ -199,7 +199,8 @@ def _openai_completion_helper(
     while True:
         try:
             if is_chat:
-                print('curr_kwargs', curr_kwargs)
+                logging.info('curr_kwargs', curr_kwargs)
+                logging.info('engine', engine)
                 completion_batch = openai.ChatCompletion.create(engine=engine, messages=prompt_batch[0], **curr_kwargs)
 
                 choices = completion_batch.choices

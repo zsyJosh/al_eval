@@ -1,8 +1,8 @@
 chatgpt:
-  prompt_template: "chatgpt/basic_prompt.txt"
+  prompt_template: "chat_eval/prompt.txt"
   fn_completions: "openai_completions"
   completions_kwargs:
-    model_name: "lumi-gpt-35-turbo"
+    engine: "lumi-gpt-35-turbo"
     max_tokens: 50
     temperature: 0
   completion_parser_kwargs:

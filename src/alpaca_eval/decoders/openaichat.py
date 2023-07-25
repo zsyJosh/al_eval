@@ -15,14 +15,13 @@ import tqdm
 
 from .. import constants, utils
 
-__all__ = ["openai_completions"]
+__all__ = ["openai_chat_completions"]
 
 DEFAULT_OPENAI_API_BASE = openai.api_base
 
-
-def openai_completions(
+def openai_chat_completions(
     prompts: Sequence[str],
-    model_name: str,
+    engine: str,
     tokens_to_favor: Optional[Sequence[str]] = None,
     tokens_to_avoid: Optional[Sequence[str]] = None,
     is_skip_multi_tokens_to_avoid: bool = True,
@@ -39,7 +38,7 @@ def openai_completions(
     prompts : list of str
         Prompts to get completions for.
 
-    model_name : str
+    engine : str
         Name of the model to use for decoding.
 
     tokens_to_favor : list of str, optional
@@ -59,31 +58,16 @@ def openai_completions(
 
     decoding_kwargs :
         Additional kwargs to pass to `openai.Completion` or `openai.ChatCompletion`.
-
-    Example
-    -------
-    >>> prompts = ["Respond with one digit: 1+1=", "Respond with one digit: 2+2="]
-    >>> openai_completions(prompts, model_name="text-davinci-003", tokens_to_avoid=["2"," 2"])['completions']
-    ['\n\nAnswer: \n\nTwo (or, alternatively, the number "two" or the numeral "two").', '\n\n4']
-    >>> openai_completions(prompts, model_name="text-davinci-003", tokens_to_favor=["2"])['completions']
-    ['2\n\n2', '\n\n4']
-    >>> openai_completions(prompts, model_name="text-davinci-003",
-    ... tokens_to_avoid=["2 a long sentence that is not a token"])['completions']
-    ['\n\n2', '\n\n4']
-    >>> chat_prompt = ["<|im_start|>user\n1+1=<|im_end|>", "<|im_start|>user\nRespond with one digit: 2+2=<|im_end|>"]
-    >>> openai_completions(chat_prompt, "gpt-3.5-turbo", tokens_to_avoid=["2"," 2"])['completions']
-    ['As an AI language model, I can confirm that 1+1 equals  02 in octal numeral system, 10 in decimal numeral
-    system, and  02 in hexadecimal numeral system.', '4']
     """
     n_examples = len(prompts)
     if n_examples == 0:
         logging.info("No samples to annotate.")
         return []
     else:
-        logging.info(f"Using `openai_completions` on {n_examples} prompts using {model_name}.")
+        logging.info(f"Using `openai_completions` on {n_examples} prompts using {engine}.")
 
     if tokens_to_avoid or tokens_to_favor:
-        tokenizer = tiktoken.encoding_for_model(model_name)
+        tokenizer = tiktoken.encoding_for_model(engine)
 
         logit_bias = decoding_kwargs.get("logit_bias", {})
         if tokens_to_avoid is not None:
@@ -106,7 +90,7 @@ def openai_completions(
     if is_strip:
         prompts = [p.strip() for p in prompts]
 
-    is_chat = decoding_kwargs.get("requires_chatml", _requires_chatml(model_name))
+    is_chat = decoding_kwargs.get("requires_chatml", _requires_chatml(engine))
     if is_chat:
         prompts = [_prompt_to_chatml(prompt) for prompt in prompts]
         num_procs = num_procs or 4
@@ -125,7 +109,7 @@ def openai_completions(
 
     prompt_batches = [prompts[batch_id * batch_size : (batch_id + 1) * batch_size] for batch_id in range(n_batches)]
 
-    kwargs = dict(n=1, engine=model_name, is_chat=is_chat, **decoding_kwargs)
+    kwargs = dict(n=1, engine=engine, is_chat=is_chat, **decoding_kwargs)
     logging.info(f"BEFORE kwargs!!: {kwargs}")
     logging.info(f"num_procs: {num_procs}")
     logging.info(f"Kwargs to completion: {kwargs}")
@@ -152,7 +136,7 @@ def openai_completions(
     completions_text = [completion.text for completion_batch in completions for completion in completion_batch]
 
     price = [
-        completion["total_tokens"] * _get_price_per_token(model_name)
+        completion["total_tokens"] * _get_price_per_token(engine)
         for completion_batch in completions
         for completion in completion_batch
     ]

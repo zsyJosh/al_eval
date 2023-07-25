@@ -27,7 +27,7 @@ def get_fn_completions(name: Union[str, Callable]) -> Callable:
 
         return openai_completions
 
-    elif name == "openai_chat_ompletions":
+    elif name == "openai_chat_completions":
         try:
             from .openai import openai_chat_completions
         except ImportError as e:

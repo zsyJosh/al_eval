@@ -22,7 +22,7 @@ DEFAULT_OPENAI_API_BASE = openai.api_base
 
 def openai_completions(
     prompts: Sequence[str],
-    model_name: str,
+    engine: str,
     tokens_to_favor: Optional[Sequence[str]] = None,
     tokens_to_avoid: Optional[Sequence[str]] = None,
     is_skip_multi_tokens_to_avoid: bool = True,
@@ -80,10 +80,10 @@ def openai_completions(
         logging.info("No samples to annotate.")
         return []
     else:
-        logging.info(f"Using `openai_completions` on {n_examples} prompts using {model_name}.")
+        logging.info(f"Using `openai_completions` on {n_examples} prompts using {engine}.")
 
     if tokens_to_avoid or tokens_to_favor:
-        tokenizer = tiktoken.encoding_for_model(model_name)
+        tokenizer = tiktoken.encoding_for_model(engine)
 
         logit_bias = decoding_kwargs.get("logit_bias", {})
         if tokens_to_avoid is not None:
@@ -106,7 +106,7 @@ def openai_completions(
     if is_strip:
         prompts = [p.strip() for p in prompts]
 
-    is_chat = decoding_kwargs.get("requires_chatml", _requires_chatml(model_name))
+    is_chat = decoding_kwargs.get("requires_chatml", _requires_chatml(engine))
     if is_chat:
         prompts = [_prompt_to_chatml(prompt) for prompt in prompts]
         num_procs = num_procs or 4
@@ -125,7 +125,7 @@ def openai_completions(
 
     prompt_batches = [prompts[batch_id * batch_size : (batch_id + 1) * batch_size] for batch_id in range(n_batches)]
 
-    kwargs = dict(n=1, engine=model_name, is_chat=is_chat, **decoding_kwargs)
+    kwargs = dict(n=1, engine=engine, is_chat=is_chat, **decoding_kwargs)
     logging.info(f"BEFORE kwargs!!: {kwargs}")
     logging.info(f"num_procs: {num_procs}")
     logging.info(f"Kwargs to completion: {kwargs}")
@@ -152,7 +152,7 @@ def openai_completions(
     completions_text = [completion.text for completion_batch in completions for completion in completion_batch]
 
     price = [
-        completion["total_tokens"] * _get_price_per_token(model_name)
+        completion["total_tokens"] * _get_price_per_token(engine)
         for completion_batch in completions
         for completion in completion_batch
     ]
@@ -170,7 +170,7 @@ def _openai_completion_helper(
     openai_api_base: Optional[str] = constants.OPENAI_API_BASE,
     openai_api_version: Optional[str] = constants.OPENAI_API_VERSION,
     openai_api_type: Optional[str] = constants.OPENAI_API_TYPE,
-    engine: Optional[str] = constants.OPENAI_ENGINE,
+    eg: Optional[str] = constants.OPENAI_ENGINE,
     max_tokens: Optional[int] = 1000,
     top_p: Optional[float] = 1.0,
     temperature: Optional[float] = 0.7,
@@ -201,8 +201,9 @@ def _openai_completion_helper(
         try:
             if is_chat:
                 logging.info(f"curr_kwargs: {curr_kwargs}")
-                logging.info(f"engine: {engine}")
-                completion_batch = openai.ChatCompletion.create(engine=engine, messages=prompt_batch[0], **curr_kwargs)
+                logging.info(f"engine: {eg}")
+                assert eg is not None
+                completion_batch = openai.ChatCompletion.create(engine=eg, messages=prompt_batch[0], **curr_kwargs)
 
                 choices = completion_batch.choices
                 for choice in choices:

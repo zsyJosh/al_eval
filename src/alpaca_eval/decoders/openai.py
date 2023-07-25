@@ -125,7 +125,7 @@ def openai_completions(
 
     prompt_batches = [prompts[batch_id * batch_size : (batch_id + 1) * batch_size] for batch_id in range(n_batches)]
 
-    kwargs = dict(n=1, model=model_name, is_chat=is_chat, **decoding_kwargs)
+    kwargs = dict(n=1, engine=model_name, is_chat=is_chat, **decoding_kwargs)
     logging.info(f"Kwargs to completion: {kwargs}")
 
     with utils.Timer() as t:

@@ -27,6 +27,16 @@ def get_fn_completions(name: Union[str, Callable]) -> Callable:
 
         return openai_completions
 
+    elif name == "openai_chat_ompletions":
+        try:
+            from .openai import openai_chat_completions
+        except ImportError as e:
+            packages = ["openai"]
+            logging.exception(f"You need {packages} to use openai_completions. Error:")
+            raise e
+
+        return openai_chat_completions
+
     elif name == "huggingface_api_completions":
         try:
             from .huggingface_api import huggingface_api_completions

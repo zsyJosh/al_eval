@@ -22,7 +22,7 @@ DEFAULT_OPENAI_API_BASE = openai.api_base
 
 def openai_completions(
     prompts: Sequence[str],
-    engine: str,
+    model_name: str,
     tokens_to_favor: Optional[Sequence[str]] = None,
     tokens_to_avoid: Optional[Sequence[str]] = None,
     is_skip_multi_tokens_to_avoid: bool = True,
@@ -74,6 +74,132 @@ def openai_completions(
     >>> openai_completions(chat_prompt, "gpt-3.5-turbo", tokens_to_avoid=["2"," 2"])['completions']
     ['As an AI language model, I can confirm that 1+1 equals  02 in octal numeral system, 10 in decimal numeral
     system, and  02 in hexadecimal numeral system.', '4']
+    """
+    n_examples = len(prompts)
+    if n_examples == 0:
+        logging.info("No samples to annotate.")
+        return []
+    else:
+        logging.info(f"Using `openai_completions` on {n_examples} prompts using {model_name}.")
+
+    if tokens_to_avoid or tokens_to_favor:
+        tokenizer = tiktoken.encoding_for_model(model_name)
+
+        logit_bias = decoding_kwargs.get("logit_bias", {})
+        if tokens_to_avoid is not None:
+            for t in tokens_to_avoid:
+                curr_tokens = tokenizer.encode(t)
+                if len(curr_tokens) != 1 and is_skip_multi_tokens_to_avoid:
+                    logging.warning(f"'{t}' has more than one token, skipping because `is_skip_multi_tokens_to_avoid`.")
+                    continue
+                for tok_id in curr_tokens:
+                    logit_bias[tok_id] = -100  # avoids certain tokens
+
+        if tokens_to_favor is not None:
+            for t in tokens_to_favor:
+                curr_tokens = tokenizer.encode(t)
+                for tok_id in curr_tokens:
+                    logit_bias[tok_id] = 7  # increase log prob of tokens to match
+
+        decoding_kwargs["logit_bias"] = logit_bias
+
+    if is_strip:
+        prompts = [p.strip() for p in prompts]
+
+    is_chat = decoding_kwargs.get("requires_chatml", _requires_chatml(model_name))
+    if is_chat:
+        prompts = [_prompt_to_chatml(prompt) for prompt in prompts]
+        num_procs = num_procs or 4
+        batch_size = batch_size or 1
+
+        if batch_size > 1:
+            logging.warning("batch_size > 1 is not supported yet for chat models. Setting to 1")
+            batch_size = 1
+
+    else:
+        num_procs = num_procs or 1
+        batch_size = batch_size or 10
+
+    logging.info(f"Kwargs to completion: {decoding_kwargs}")
+    n_batches = int(math.ceil(n_examples / batch_size))
+
+    prompt_batches = [prompts[batch_id * batch_size : (batch_id + 1) * batch_size] for batch_id in range(n_batches)]
+
+    kwargs = dict(n=1, engine=model_name, is_chat=is_chat, **decoding_kwargs)
+    logging.info(f"BEFORE kwargs!!: {kwargs}")
+    logging.info(f"num_procs: {num_procs}")
+    logging.info(f"Kwargs to completion: {kwargs}")
+
+    with utils.Timer() as t:
+        if num_procs == 1:
+            completions = [
+                _openai_completion_helper(prompt_batch, **kwargs)
+                for prompt_batch in tqdm.tqdm(prompt_batches, desc="prompt_batches")
+            ]
+        else:
+            with multiprocessing.Pool(num_procs) as p:
+                partial_completion_helper = functools.partial(_openai_completion_helper, **kwargs)
+                completions = list(
+                    tqdm.tqdm(
+                        p.imap(partial_completion_helper, prompt_batches),
+                        desc="prompt_batches",
+                        total=len(prompt_batches),
+                    )
+                )
+    logging.info(f"Completed {n_examples} examples in {t}.")
+
+    # flatten the list and select only the text
+    completions_text = [completion.text for completion_batch in completions for completion in completion_batch]
+
+    price = [
+        completion["total_tokens"] * _get_price_per_token(model_name)
+        for completion_batch in completions
+        for completion in completion_batch
+    ]
+    avg_time = [t.duration / n_examples] * len(completions_text)
+
+    return dict(completions=completions_text, price_per_example=price, time_per_example=avg_time)
+
+
+def openai_chat_completions(
+    prompts: Sequence[str],
+    engine: str,
+    tokens_to_favor: Optional[Sequence[str]] = None,
+    tokens_to_avoid: Optional[Sequence[str]] = None,
+    is_skip_multi_tokens_to_avoid: bool = True,
+    is_strip: bool = True,
+    num_procs: Optional[int] = None,
+    batch_size: Optional[int] = None,
+    **decoding_kwargs,
+) -> dict[str, list]:
+    r"""Get openai completions for the given prompts. Allows additional parameters such as tokens to avoid and
+    tokens to favor.
+
+    Parameters
+    ----------
+    prompts : list of str
+        Prompts to get completions for.
+
+    engine : str
+        Name of the model to use for decoding.
+
+    tokens_to_favor : list of str, optional
+        Substrings to favor in the completions. We will add a positive bias to the logits of the tokens constituting
+        the substrings.
+
+    tokens_to_avoid : list of str, optional
+        Substrings to avoid in the completions. We will add a large negative bias to the logits of the tokens
+        constituting the substrings.
+
+    is_skip_multi_tokens_to_avoid : bool, optional
+        Whether to skip substrings from tokens_to_avoid that are constituted by more than one token => avoid undesired
+        side effects on other tokens.
+
+    is_strip : bool, optional
+        Whether to strip trailing and leading spaces from the prompts.
+
+    decoding_kwargs :
+        Additional kwargs to pass to `openai.Completion` or `openai.ChatCompletion`.
     """
     n_examples = len(prompts)
     if n_examples == 0:
@@ -160,7 +286,6 @@ def openai_completions(
 
     return dict(completions=completions_text, price_per_example=price, time_per_example=avg_time)
 
-
 def _openai_completion_helper(
     prompt_batch: Sequence[str],
     is_chat: bool,
@@ -170,7 +295,7 @@ def _openai_completion_helper(
     openai_api_base: Optional[str] = constants.OPENAI_API_BASE,
     openai_api_version: Optional[str] = constants.OPENAI_API_VERSION,
     openai_api_type: Optional[str] = constants.OPENAI_API_TYPE,
-    eg: Optional[str] = constants.OPENAI_ENGINE,
+    engine: Optional[str] = constants.OPENAI_ENGINE,
     max_tokens: Optional[int] = 1000,
     top_p: Optional[float] = 1.0,
     temperature: Optional[float] = 0.7,
@@ -187,7 +312,6 @@ def _openai_completion_helper(
     openai.api_base = openai_api_base if openai_api_base is not None else DEFAULT_OPENAI_API_BASE
 
     # set api type
-    logging.info(f"api_type: {openai_api_type}")
     openai.api_type = openai_api_type if openai_api_type is not None else None
 
     # set api version
@@ -201,9 +325,8 @@ def _openai_completion_helper(
         try:
             if is_chat:
                 logging.info(f"curr_kwargs: {curr_kwargs}")
-                logging.info(f"engine: {eg}")
-                assert eg is not None
-                completion_batch = openai.ChatCompletion.create(engine=eg, messages=prompt_batch[0], **curr_kwargs)
+                logging.info(f"engine: {engine}")
+                completion_batch = openai.ChatCompletion.create(engine=engine, messages=prompt_batch[0], **curr_kwargs)
 
                 choices = completion_batch.choices
                 for choice in choices:

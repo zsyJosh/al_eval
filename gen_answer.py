@@ -3,6 +3,7 @@ import torch
 from fastchat.model import load_model, get_conversation_template
 import argparse
 import json
+from tqdm import tqdm
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -56,7 +57,7 @@ if __name__ == "__main__":
     torch.manual_seed(0)
 
     eval_set = datasets.load_dataset("tatsu-lab/alpaca_eval", "alpaca_eval")["eval"]
-    for example in eval_set:
+    for example in tqdm(eval_set):
         conv = get_conversation_template(args.model_id)
         conv.append_message(conv.roles[0], example["instruction"])
         conv.append_message(conv.roles[1], None)

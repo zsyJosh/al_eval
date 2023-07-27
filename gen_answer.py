@@ -55,6 +55,7 @@ if __name__ == "__main__":
     temperature = 0.7
     do_sample = True
     torch.manual_seed(0)
+    ans_list = []
 
     eval_set = datasets.load_dataset("tatsu-lab/alpaca_eval", "alpaca_eval")["eval"]
     for example in tqdm(eval_set):
@@ -88,8 +89,9 @@ if __name__ == "__main__":
 
         conv.messages[-1][-1] = output
         example["output"] = output
+        ans_list.append(example)
 
     ans_file = args.ans_path
     with open(ans_file, 'w') as file:
-        json.dump(eval_set, file)
+        json.dump(ans_list, file)
     file.close()

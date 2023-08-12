@@ -4,7 +4,6 @@ from fastchat.model import load_model, get_conversation_template
 import argparse
 import json
 from tqdm import tqdm
-import eval_dataset
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

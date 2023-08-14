@@ -57,9 +57,13 @@ if __name__ == "__main__":
     torch.manual_seed(0)
     ans_list = []
 
-    eval_path = '/data/zhaoshiyu/zhaoshiyu/alpaca_eval.json'
+    eval_set = datasets.load_dataset("tatsu-lab/alpaca_eval", "alpaca_eval")["eval"]
+    '''
+    # or load from json manually
+    eval_path = $PATH_TO_DATASET 
     with open(eval_path) as f:
         eval_set = json.load(f)
+    '''
 
     for example in tqdm(eval_set):
         conv = get_conversation_template(args.model_id)

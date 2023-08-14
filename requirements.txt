@@ -4,3 +4,7 @@ openai
 pandas
 tiktoken>=0.3.2
 fire
+fschat[model_worker,webui]
+flash-attn
+einops
+packaging

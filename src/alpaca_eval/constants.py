@@ -5,13 +5,13 @@ from pathlib import Path
 import datasets
 
 ### API specific ###
-OPENAI_API_KEYS = os.environ.get("OPENAI_API_KEYS", os.environ.get("OPENAI_API_KEY", "c1b17465393d4e268e107c9a14736c6b"))
+OPENAI_API_KEYS = os.environ.get("OPENAI_API_KEYS", os.environ.get("OPENAI_API_KEY", None))
 if isinstance(OPENAI_API_KEYS, str):
     OPENAI_API_KEYS = OPENAI_API_KEYS.split(",")
-OPENAI_API_BASE = os.environ.get("OPENAI_API_BASE", "https://lumin.openai.azure.com/")
-OPENAI_ENGINE = os.environ.get("OPENAI_ENGINE", 'lumi-gpt-35-turbo')
-OPENAI_API_VERSION = os.environ.get("OPENAI_API_VERSION", "2023-03-15-preview")
-OPENAI_API_TYPE = os.environ.get("OPENAI_API_TYPE", "azure")
+OPENAI_API_BASE = os.environ.get("OPENAI_API_BASE", None)
+OPENAI_ENGINE = os.environ.get("OPENAI_ENGINE", None)
+OPENAI_API_VERSION = os.environ.get("OPENAI_API_VERSION", None)
+OPENAI_API_TYPE = os.environ.get("OPENAI_API_TYPE", None)
 OPENAI_ORGANIZATION_IDS = os.environ.get("OPENAI_ORGANIZATION_IDS", None)
 if isinstance(OPENAI_ORGANIZATION_IDS, str):
     OPENAI_ORGANIZATION_IDS = OPENAI_ORGANIZATION_IDS.split(",")

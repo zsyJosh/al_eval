@@ -34,7 +34,7 @@ python gen_answer.py --model-path <the_path_of_model> \
 
 ```bash
 export OPENAI_API_TYPE=
-export OPENAI_ENGINE=
+export OPENAI_API_BASE=
 export OPENAI_API_VERSION=
 export OPENAI_API_KEYS=
 export OPENAI_ENGINE=
